@@ -67,7 +67,8 @@ argonFooter <- argonDashFooter(
     src = "http://onlinemph.berkeley.edu",
     argonFooterMenu(
         argonFooterItem("Original OOMPH Stat", src = "https://xandersph.shinyapps.io/OOMPHstat/"),
-        argonFooterItem("Originally based on SurfStat", src = "https://www.math.mcgill.ca/keith/surfstat/")
+        argonFooterItem("Originally based on SurfStat", src = "https://www.math.mcgill.ca/keith/surfstat/"),
+        argonFooterItem("Source Code", src = "https://github.com/geneh0/oomphstat-v2")
     )
 ) # end argonDashFooter
 
