@@ -80,7 +80,7 @@ ui <- argonDashPage(
     title = "OOMPH Stat",
     author = "Gene Ho",
     description = NULL,
-    sidebar = NULL,
+    sidebar = argonSidebar,
     # navbar = argonNav,
     header = argonHeader,
     body = argonDashBody(
@@ -153,64 +153,55 @@ ui <- argonDashPage(
                 argonH1("t Distribution",
                         display = 2),
                 argonRow(
+                    argonCard(title = argonH1('Inputs',
+                                              display = 4),
+                              width = 4,
+                              # t tail type buttons
+                              argonRow(
+                                  radioButtons(
+                                      "t_tail", "Type",
+                                      choices = c(
+                                          "Left-Tailed" = "left",
+                                          "Right-Tailed" = "right",
+                                          "Central Area" = "middle",
+                                          "Two-Tailed" = "two"
+                                      ),
+                                      selected = "left"
+                                  )
+                              ),
+                              argonRow(
+                                  numericInput(
+                                      "tdf",
+                                      "Enter Degrees of Freedom",
+                                      value = 2,
+                                      min = 2,
+                                      max = Inf,
+                                      step = 1
+                                  )
+                              ),
+                              selectInput(
+                                  'tCurve_att',
+                                  label = 'Select Curve Input Attribute',
+                                  choices = c(
+                                      'z score' = 'z_value_select',
+                                      'area under curve' = 'auc_select'
+                                  ),
+                                  width = '100%'
+                              ),
+                              uiOutput('tAtt',
+                                       width = '100%'),
+                              uiOutput('tAutoCalc',
+                                       width = '100%')
+                              # end argonRow
+                    ),  # end argonCard
+
                     argonCard(
-                        title = 'Inputs',
-                        width = 4,
-                        # t dist tail
-                        radioButtons(
-                            "t_tail",
-                            "Type",
-                            choices = c(
-                                "Left-Tailed" = "left",
-                                "Right-Tailed" = "right",
-                                "Central Area" = "middle",
-                                "Two-Tailed" = "two"
-                            ),
-                            selected = "left"
-                        ),
-                        numericInput(
-                            "df",
-                            "Enter Degrees of Freedom",
-                            value = 2,
-                            min = 2,
-                            max = Inf,
-                            step = 1
-                        ),
-                        # t statistic
-                        numericInput(
-                            "t",
-                            "Enter t statistic",
-                            value = 0,
-                            min = -Inf,
-                            max = Inf,
-                            step = 0.5
-                        ),
-                        # Arrow icons radio buttons
-                        radioButtons(
-                            "t_arrow",
-                            NULL,
-                            choiceNames = list(icon("arrow-up"),
-                                               icon("arrow-down")),
-                            choiceValues = list("up",
-                                                "down"),
-                            inline = TRUE,
-                            selected = "down"
-                        ),
-                        # Area numeric inputs widget
-                        numericInput(
-                            "t_area",
-                            "Area Under the Curve",
-                            value = 0,
-                            min = 0, max = 1,
-                            step = 0.01
-                        )
-                    ),
-                    argonCard(
-                        title = 'Plot',
+                        title = argonH1('Plot',
+                                        display = 4),
                         width = 8,
                         plotOutput('tPlot')
                     )
-                ) # end argonRow
+                )
             ) # end argonTabItem
         ) # end argonTabItems
     ), # end argonDashBody
@@ -222,7 +213,7 @@ server <- function(input, output, session) {
 
     df <- data.frame(x = c(-10, 10))
 
-    # print('go')
+    # normal distribution ----
 
     tail_type <- reactive({input$norm_tail})
 
@@ -322,45 +313,11 @@ server <- function(input, output, session) {
         }
     })
 
-    # label <- reactive({})
-
-    # print(label())
-
 
     print(280)
 
     output$normPlot <- renderPlot({
         tail_type <- input$norm_tail
-
-        # observeEvent(input$norm_auc, {
-        #     update_z <- case_when(tail_type == 'left' ~ qnorm(input$norm_auc),
-        #                           tail_type == 'right' ~ qnorm(input$norm_auc,
-        #                                                        lower.tail = FALSE),
-        #                           tail_type == 'middle' ~ qnorm(input$norm_auc + ((1 - input$norm_auc)/2)),
-        #                           tail_type == 'two' ~ qnorm(input$norm_auc/2,
-        #                                                      lower.tail = FALSE)
-        #     ) %>%
-        #         round(4)
-        #
-        #     updateNumericInput(session,
-        #                        'z_value',
-        #                        value = update_z)
-        # }, priority = 0)
-        #
-        # observeEvent(input$z_value, {
-        #     update_auc <- case_when(tail_type == 'left' ~ pnorm(input$z_value),
-        #                             tail_type == 'right' ~ pnorm(input$z_value,
-        #                                                          lower.tail = FALSE),
-        #                             tail_type == 'middle' ~ pnorm(input$z_value) -
-        #                                 pnorm(-(input$z_value)),
-        #                             tail_type == 'two' ~ 2 * pnorm(-abs(input$z_value)),
-        #                             TRUE ~ 0)
-        #
-        #     updateNumericInput(session,
-        #                        'auc',
-        #                        value = update_auc)
-        # }, priority = 1)
-
 
 
         lower_lim <- case_when(tail_type %in% c('left', 'two') ~ -10,
@@ -371,8 +328,6 @@ server <- function(input, output, session) {
                                tail_type == 'left' ~ as.double(z_score()),
                                tail_type == 'middle' ~ as.double(z_score()),
                                TRUE ~ 0)
-
-        # print(norm_auc_react())
 
         label <- HTML(paste0('z value: ', z_score(), '\n',
                              'auc: ', norm_auc_react()))
