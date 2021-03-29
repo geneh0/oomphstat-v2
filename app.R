@@ -1,0 +1,416 @@
+#
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+
+library(shiny)
+library(argonDash)
+library(argonR)
+library(stringr)
+library(reactlog)
+library(tidyverse)
+
+reactlog_enable()
+
+# -----------------------------------------------------------------------
+# Predefine main elements
+
+# fonts
+fonts <- "https://fonts.googleapis.com/css2?family=Fira+Code:wght@300&family=Fira+Sans+Condensed:wght@400&family=Fira+Sans:wght@300;900&display=swap"
+
+# sidebar
+argonSidebar <- argonDashSidebar(
+    vertical = TRUE,
+    skin = "light",
+    background = "white",
+    size = "md",
+    side = "left",
+    id = "my_sidebar",
+    brand_logo = "ph-logo.jpg",
+    argonSidebarHeader(title = "Navigation"), br(),
+    argonSidebarMenu(
+        argonSidebarItem(
+            tabName = "01_norm",
+            icon = icon("fas fa-baby", lib = 'font-awesome'),
+            "The Normal Distribution"),
+        argonSidebarItem(
+            tabName = "02_t",
+            icon = icon("fas fa-child", lib = 'font-awesome'),
+            "The t Distribution"),
+        argonSidebarItem(
+            tabName = "03_chi2",
+            icon = icon("fas fa-user-graduate", lib = 'font-awesome'),
+            "The chi-squared Distribution")), br())
+
+# argonNav <- argonDashNavbar(
+#     argonDropNav(
+#         title = "Education Sector COVID-19 Case Maps",
+#         orientation = "right",
+#     )
+# )
+
+
+# header
+argonHeader <- argonDashHeader(
+    argonH1("OOMPH Stat", display = 3) %>% argonTextColor('secondary'),
+    gradient = TRUE,
+    color = "primary",
+    separator = TRUE,
+    separator_color = "secondary")
+
+argonFooter <- argonDashFooter(
+    copyrights = "\uA9 Berkeley Online MPH, 2021",
+    src = "http://onlinemph.berkeley.edu",
+    argonFooterMenu(
+        argonFooterItem("Original OOMPH Stat", src = "https://xandersph.shinyapps.io/OOMPHstat/"),
+        argonFooterItem("Originally based on SurfStat", src = "https://www.math.mcgill.ca/keith/surfstat/")
+    )
+) # end argonDashFooter
+
+# -----------------------------------------------------------------------
+
+
+# Define UI logic
+ui <- argonDashPage(
+    title = "OOMPH Stat",
+    author = "Gene Ho",
+    description = NULL,
+    sidebar = NULL,
+    # navbar = argonNav,
+    header = argonHeader,
+    body = argonDashBody(
+        tags$head(
+            tags$link(rel = "stylesheet", type = "text/css", href = fonts),
+            tags$link(rel = "stylesheet", type = "text/css", href = "style.css")),
+        argonTabItems(
+            # * this is the structure for adding content to the ui:
+            #   + tab item
+            #   + row
+            #   + card
+            #   + row
+            # argonTabItem(
+            #   argonRow(
+            #     argonCard(
+            #       argonRow(
+            #         plotOutput()
+            #       )
+            #     )
+            #   )
+            # ),
+            # EARLY CARE AND EDUCATION MAPS
+            argonTabItem(
+                tabName = '01_norm',
+                argonH1('Normal Distribution',
+                        display = 2),
+                argonRow(
+                    argonCard(title = argonH1('Inputs',
+                                              display = 4),
+                              width = 4,
+                              # normal tail type buttons
+                              argonRow(
+                                  radioButtons(
+                                      "norm_tail", "Type",
+                                      choices = c(
+                                          "Left-Tailed" = "left",
+                                          "Right-Tailed" = "right",
+                                          "Central Area" = "middle",
+                                          "Two-Tailed" = "two"
+                                      ),
+                                      selected = "left"
+                                  )
+                              ),
+                              selectInput(
+                                  'normCurve_att',
+                                  label = 'Select Curve Input Attribute',
+                                  choices = c(
+                                      'z score' = 'z_value_select',
+                                      'area under curve' = 'auc_select'
+                                  ),
+                                  width = '100%'
+                              ),
+                              uiOutput('normAtt',
+                                       width = '100%'),
+                              uiOutput('normAutoCalc',
+                                       width = '100%')
+                              # end argonRow
+                    ),  # end argonCard
+
+                    argonCard(
+                        title = argonH1('Plot',
+                                        display = 4),
+                        width = 8,
+                        plotOutput('normPlot')
+                    )
+                ) # end argonRow
+            ), # end argonTabItem
+            argonTabItem(
+                tabName = '02_t',
+                argonH1("t Distribution",
+                        display = 2),
+                argonRow(
+                    argonCard(
+                        title = 'Inputs',
+                        width = 4,
+                        # t dist tail
+                        radioButtons(
+                            "t_tail",
+                            "Type",
+                            choices = c(
+                                "Left-Tailed" = "left",
+                                "Right-Tailed" = "right",
+                                "Central Area" = "middle",
+                                "Two-Tailed" = "two"
+                            ),
+                            selected = "left"
+                        ),
+                        numericInput(
+                            "df",
+                            "Enter Degrees of Freedom",
+                            value = 2,
+                            min = 2,
+                            max = Inf,
+                            step = 1
+                        ),
+                        # t statistic
+                        numericInput(
+                            "t",
+                            "Enter t statistic",
+                            value = 0,
+                            min = -Inf,
+                            max = Inf,
+                            step = 0.5
+                        ),
+                        # Arrow icons radio buttons
+                        radioButtons(
+                            "t_arrow",
+                            NULL,
+                            choiceNames = list(icon("arrow-up"),
+                                               icon("arrow-down")),
+                            choiceValues = list("up",
+                                                "down"),
+                            inline = TRUE,
+                            selected = "down"
+                        ),
+                        # Area numeric inputs widget
+                        numericInput(
+                            "t_area",
+                            "Area Under the Curve",
+                            value = 0,
+                            min = 0, max = 1,
+                            step = 0.01
+                        )
+                    ),
+                    argonCard(
+                        title = 'Plot',
+                        width = 8,
+                        plotOutput('tPlot')
+                    )
+                ) # end argonRow
+            ) # end argonTabItem
+        ) # end argonTabItems
+    ), # end argonDashBody
+    footer = argonFooter
+) # end argonDashPage
+
+# Define server logic required to draw a histogram
+server <- function(input, output, session) {
+
+    df <- data.frame(x = c(-10, 10))
+
+    # print('go')
+
+    tail_type <- reactive({input$norm_tail})
+
+    print('stop')
+
+
+    output$normAtt <- renderUI({
+        if(input$normCurve_att == 'z_value_select'){
+            numericInput(
+                'z_value',
+                label = NULL,
+                value = 0,
+                min = -5,
+                max = 5,
+                width = '100%')
+        } else if(input$normCurve_att == 'auc_select'){
+            numericInput(
+                'norm_auc',
+                label = NULL,
+                value = 0,
+                min = 0,
+                max = 1,
+                width = '100%')
+        }
+    })
+
+
+    z_score <- reactive({
+        if(input$normCurve_att == 'z_value_select'){
+            input$z_value %>%
+                round(4)
+        }
+        else if(input$normCurve_att == 'auc_select'){
+            case_when(tail_type() == 'left' ~ qnorm(norm_auc_react()),
+                      tail_type() == 'right' ~ qnorm(norm_auc_react(),
+                                                     lower.tail = FALSE),
+                      tail_type() == 'middle' ~ qnorm(norm_auc_react() + ((1 - norm_auc_react())/2)),
+                      tail_type() == 'two' ~ qnorm(norm_auc_react()/2,
+                                                   lower.tail = FALSE)
+            ) %>%
+                round(4)
+        }
+    })
+
+
+    norm_auc_react <- reactive({
+        if(input$normCurve_att == 'z_value_select'){
+            case_when(tail_type() == 'left' ~ pnorm(z_score()),
+                      tail_type() == 'right' ~ pnorm(z_score(),
+                                                     lower.tail = FALSE),
+                      tail_type() == 'middle' ~ pnorm(z_score()) -
+                          pnorm(-(z_score())),
+                      tail_type() == 'two' ~ 2 * pnorm(-abs(z_score())),
+                      TRUE ~ 0) %>%
+                round(4)
+        }
+        else if(input$normCurve_att == 'auc_select'){
+            input$norm_auc %>%
+                round(4)
+        }
+    })
+
+
+
+    output$normAutoCalc <- renderUI({
+        tail_type <- input$norm_tail
+
+        if(input$normCurve_att == 'z_value_select'){
+            auc <- case_when(tail_type == 'left' ~ pnorm(z_score()),
+                             tail_type == 'right' ~ pnorm(z_score(),
+                                                          lower.tail = FALSE),
+                             tail_type == 'middle' ~ pnorm(z_score()) -
+                                 pnorm(-(z_score())),
+                             tail_type == 'two' ~ 2 * pnorm(-abs(z_score())),
+                             TRUE ~ 0)
+
+            HTML(paste0(argonH1("Area Under Curve (AUC):",
+                                display = 4),
+                        h4(round(auc, 3))))
+        } else if(input$normCurve_att == 'auc_select'){
+            if(between(norm_auc_react(), 0, 1)){
+                z_value <- case_when(tail_type() == 'left' ~ qnorm(norm_auc_react()),
+                                     tail_type() == 'right' ~ qnorm(norm_auc_react(),
+                                                                    lower.tail = FALSE),
+                                     tail_type() == 'middle' ~ qnorm(norm_auc_react() + ((1 - norm_auc_react())/2)),
+                                     tail_type() == 'two' ~ qnorm(norm_auc_react()/2,
+                                                                  lower.tail = FALSE))
+
+            }
+            if(is.finite(z_value)){
+                HTML(paste0(argonH1("z score:",
+                                    display = 4),
+                            h4(round(z_value, 3))))
+            } else {
+                "Please enter a value between 0 and 1. "
+            }
+        }
+    })
+
+    # label <- reactive({})
+
+    # print(label())
+
+
+    print(280)
+
+    output$normPlot <- renderPlot({
+        tail_type <- input$norm_tail
+
+        # observeEvent(input$norm_auc, {
+        #     update_z <- case_when(tail_type == 'left' ~ qnorm(input$norm_auc),
+        #                           tail_type == 'right' ~ qnorm(input$norm_auc,
+        #                                                        lower.tail = FALSE),
+        #                           tail_type == 'middle' ~ qnorm(input$norm_auc + ((1 - input$norm_auc)/2)),
+        #                           tail_type == 'two' ~ qnorm(input$norm_auc/2,
+        #                                                      lower.tail = FALSE)
+        #     ) %>%
+        #         round(4)
+        #
+        #     updateNumericInput(session,
+        #                        'z_value',
+        #                        value = update_z)
+        # }, priority = 0)
+        #
+        # observeEvent(input$z_value, {
+        #     update_auc <- case_when(tail_type == 'left' ~ pnorm(input$z_value),
+        #                             tail_type == 'right' ~ pnorm(input$z_value,
+        #                                                          lower.tail = FALSE),
+        #                             tail_type == 'middle' ~ pnorm(input$z_value) -
+        #                                 pnorm(-(input$z_value)),
+        #                             tail_type == 'two' ~ 2 * pnorm(-abs(input$z_value)),
+        #                             TRUE ~ 0)
+        #
+        #     updateNumericInput(session,
+        #                        'auc',
+        #                        value = update_auc)
+        # }, priority = 1)
+
+
+
+        lower_lim <- case_when(tail_type %in% c('left', 'two') ~ -10,
+                               tail_type == 'right' ~ as.double(z_score()),
+                               tail_type == 'middle' ~ -as.double(z_score()),
+                               TRUE ~ 0)
+        upper_lim <- case_when(tail_type %in% c('right', 'two') ~ 10,
+                               tail_type == 'left' ~ as.double(z_score()),
+                               tail_type == 'middle' ~ as.double(z_score()),
+                               TRUE ~ 0)
+
+        # print(norm_auc_react())
+
+        label <- HTML(paste0('z value: ', z_score(), '\n',
+                             'auc: ', norm_auc_react()))
+
+
+
+
+        ggplot(data = df, aes(x = x)) +
+            stat_function(fun = dnorm,
+                          geom = 'area',
+                          xlim = c(lower_lim, upper_lim),
+                          fill = "#FDB515") +
+            stat_function(fun = dnorm,
+                          geom = 'line',
+                          size = 1.5,
+                          xlim = c(-10, 10),
+                          color = '#3B7EA1') +
+            xlim(-4, 4) +
+            annotate('text',
+                     label = label,
+                     x = Inf, y = Inf,
+                     hjust = 1,
+                     vjust = 2,
+                     color = 'red',
+                     size = 6) +
+            labs(x = 'z score') +
+            theme_minimal() +
+            if(tail_type == 'two'){
+                stat_function(fun = dnorm,
+                              geom = 'area',
+                              fill = 'white',
+                              xlim = c(-abs(z_score()), abs(z_score())))
+            } else NULL
+
+
+
+
+    })
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
