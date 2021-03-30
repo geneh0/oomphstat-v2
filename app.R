@@ -242,34 +242,42 @@ server <- function(input, output, session) {
     })
 
 
+    calc_z_score <- function(auc){
+        case_when(tail_type() == 'left' ~ qnorm(auc),
+                  tail_type() == 'right' ~ qnorm(auc,
+                                                 lower.tail = FALSE),
+                  tail_type() == 'middle' ~ qnorm(0.50 + auc/2),
+                  tail_type() == 'two' ~ qnorm(auc/2)
+        ) %>%
+            round(4)
+    }
+
+    calc_z_auc <- function(z_val){
+        case_when(tail_type() == 'left' ~ pnorm(z_score()),
+                  tail_type() == 'right' ~ pnorm(z_score(),
+                                                 lower.tail = FALSE),
+                  tail_type() == 'middle' ~ pnorm(abs(z_score())) -
+                      pnorm(-abs(z_score())),
+                  tail_type() == 'two' ~ 2 * pnorm(-abs(z_score())),
+                  TRUE ~ 0) %>%
+            round(4)
+    }
+
+
     z_score <- reactive({
         if(input$normCurve_att == 'z_value_select'){
             input$z_value %>%
                 round(4)
         }
         else if(input$normCurve_att == 'auc_select'){
-            case_when(tail_type() == 'left' ~ qnorm(norm_auc_react()),
-                      tail_type() == 'right' ~ qnorm(norm_auc_react(),
-                                                     lower.tail = FALSE),
-                      tail_type() == 'middle' ~ qnorm(norm_auc_react() + ((1 - norm_auc_react())/2)),
-                      tail_type() == 'two' ~ qnorm(norm_auc_react()/2,
-                                                   lower.tail = FALSE)
-            ) %>%
-                round(4)
+            calc_z_score(norm_auc_react())
         }
     })
 
 
     norm_auc_react <- reactive({
         if(input$normCurve_att == 'z_value_select'){
-            case_when(tail_type() == 'left' ~ pnorm(z_score()),
-                      tail_type() == 'right' ~ pnorm(z_score(),
-                                                     lower.tail = FALSE),
-                      tail_type() == 'middle' ~ pnorm(z_score()) -
-                          pnorm(-(z_score())),
-                      tail_type() == 'two' ~ 2 * pnorm(-abs(z_score())),
-                      TRUE ~ 0) %>%
-                round(4)
+            calc_z_auc(z_score())
         }
         else if(input$normCurve_att == 'auc_select'){
             input$norm_auc %>%
@@ -283,31 +291,26 @@ server <- function(input, output, session) {
         tail_type <- input$norm_tail
 
         if(input$normCurve_att == 'z_value_select'){
-            auc <- case_when(tail_type == 'left' ~ pnorm(z_score()),
-                             tail_type == 'right' ~ pnorm(z_score(),
-                                                          lower.tail = FALSE),
-                             tail_type == 'middle' ~ pnorm(z_score()) -
-                                 pnorm(-(z_score())),
-                             tail_type == 'two' ~ 2 * pnorm(-abs(z_score())),
-                             TRUE ~ 0)
+            auc <- norm_auc_react()
 
             HTML(paste0(argonH1("Area Under Curve (AUC):",
                                 display = 4),
                         h4(round(auc, 3))))
         } else if(input$normCurve_att == 'auc_select'){
             if(between(norm_auc_react(), 0, 1)){
-                z_value <- case_when(tail_type() == 'left' ~ qnorm(norm_auc_react()),
-                                     tail_type() == 'right' ~ qnorm(norm_auc_react(),
-                                                                    lower.tail = FALSE),
-                                     tail_type() == 'middle' ~ qnorm(norm_auc_react() + ((1 - norm_auc_react())/2)),
-                                     tail_type() == 'two' ~ qnorm(norm_auc_react()/2,
-                                                                  lower.tail = FALSE))
-
+                z_value <- z_score()
             }
             if(is.finite(z_value)){
+
+                if(tail_type() %in% c('middle', 'two') & z_score() != 0){
+                    z_value <- paste('+/-', abs(z_value))
+                }
+
                 HTML(paste0(argonH1("z score:",
                                     display = 4),
-                            h4(round(z_value, 3))))
+                            h4(z_value)))
+
+
             } else {
                 "Please enter a value between 0 and 1. "
             }
@@ -327,10 +330,10 @@ server <- function(input, output, session) {
                                tail_type == 'middle' ~ as.double(z_score()),
                                TRUE ~ 0)
 
-        label <- HTML(paste0('z value: ', z_score(), '\n',
+        label <- HTML(paste0('z value: ', case_when(tail_type() %in% c('middle', 'two') & z_score() != 0 ~
+                                                        paste('+/-', abs(z_score())),
+                                                    TRUE ~ as.character(z_score())), '\n',
                              'auc: ', norm_auc_react()))
-
-
 
 
         ggplot(data = df, aes(x = x)) +
@@ -451,7 +454,7 @@ server <- function(input, output, session) {
             }
             if(is.finite(t_value)){
 
-                if(t_tail_type() %in% c('middle', 'two')){
+                if(t_tail_type() %in% c('middle', 'two') & t_score() != 0){
                     t_value <- paste('+/-', abs(t_value))
                 }
 
@@ -476,7 +479,7 @@ server <- function(input, output, session) {
                                t_tail_type() == 'middle' ~ as.double(t_score()),
                                TRUE ~ 0)
 
-        label <- HTML(paste0('t value: ', case_when(t_tail_type() %in% c('middle', 'two') ~
+        label <- HTML(paste0('t value: ', case_when(t_tail_type() %in% c('middle', 'two') & t_score() != 0 ~
                                                         paste('+/-', abs(t_score())),
                                                     TRUE ~ as.character(t_score())), '\n',
                              'df: ', t_df(), '\n',
