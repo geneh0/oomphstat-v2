@@ -13,6 +13,7 @@ library(argonR)
 library(stringr)
 library(reactlog)
 library(tidyverse)
+library(scales)
 
 reactlog_enable()
 
@@ -35,16 +36,18 @@ argonSidebar <- argonDashSidebar(
     argonSidebarMenu(
         argonSidebarItem(
             tabName = "01_norm",
-            icon = icon("fas fa-baby", lib = 'font-awesome'),
+            icon = icon("fas fa-bell", lib = 'font-awesome'),
             "The Normal Distribution"),
         argonSidebarItem(
             tabName = "02_t",
-            icon = icon("fas fa-child", lib = 'font-awesome'),
+            icon = icon("fas fa-tshirt", lib = 'font-awesome'),
             "The t Distribution"),
-        argonSidebarItem(
-            tabName = "03_chi2",
-            icon = icon("fas fa-user-graduate", lib = 'font-awesome'),
-            "The chi-squared Distribution")), br())
+        # argonSidebarItem(
+            # tabName = "03_chi2",
+            # icon = icon("fas fa-user-graduate", lib = 'font-awesome'),
+            # "The chi-squared Distribution")
+        ),
+    br())
 
 # argonNav <- argonDashNavbar(
 #     argonDropNav(
@@ -102,7 +105,7 @@ ui <- argonDashPage(
             #     )
             #   )
             # ),
-            # EARLY CARE AND EDUCATION MAPS
+            # Normal Distribution ----
             argonTabItem(
                 tabName = '01_norm',
                 argonH1('Normal Distribution',
@@ -148,6 +151,7 @@ ui <- argonDashPage(
                     )
                 ) # end argonRow
             ), # end argonTabItem
+            # t Distribution ----
             argonTabItem(
                 tabName = '02_t',
                 argonH1("t Distribution",
@@ -183,7 +187,7 @@ ui <- argonDashPage(
                                   'tCurve_att',
                                   label = 'Select Curve Input Attribute',
                                   choices = c(
-                                      'z score' = 'z_value_select',
+                                      't score' = 't_value_select',
                                       'area under curve' = 'auc_select'
                                   ),
                                   width = '100%'
@@ -216,9 +220,6 @@ server <- function(input, output, session) {
     # normal distribution ----
 
     tail_type <- reactive({input$norm_tail})
-
-    print('stop')
-
 
     output$normAtt <- renderUI({
         if(input$normCurve_att == 'z_value_select'){
@@ -313,9 +314,6 @@ server <- function(input, output, session) {
         }
     })
 
-
-    print(280)
-
     output$normPlot <- renderPlot({
         tail_type <- input$norm_tail
 
@@ -361,10 +359,156 @@ server <- function(input, output, session) {
                               fill = 'white',
                               xlim = c(-abs(z_score()), abs(z_score())))
             } else NULL
+    })
+
+    # t distribution ----
+
+    t_tail_type <- reactive({input$t_tail})
+    t_df <- reactive({input$tdf})
+
+
+    output$tAtt <- renderUI({
+        if(input$tCurve_att == 't_value_select'){
+            numericInput(
+                't_value',
+                label = NULL,
+                value = 0,
+                min = -5,
+                max = 5,
+                width = '100%')
+        } else if(input$tCurve_att == 'auc_select'){
+            numericInput(
+                't_auc',
+                label = NULL,
+                value = 0,
+                min = 0,
+                max = 1,
+                width = '100%')
+        }
+    })
+
+    calc_t_score <- function(auc, df){
+        case_when(t_tail_type() == 'left' ~ qt(auc, df = df),
+                  t_tail_type() == 'right' ~ qt(auc, df = df,
+                                              lower.tail = FALSE),
+                  # for t-val of middle, want half of prob to be above 50%
+                  # then add 50%
+                  t_tail_type() == 'middle' ~ qt(auc/2 + .5, df = df) - qt(auc/2, df = df),
+                  t_tail_type() == 'two' ~ qt(auc/2, df = df)
+        ) %>%
+            round(4)
+    }
+
+    calc_t_auc <- function(t_star, df){
+        case_when(t_tail_type() == 'left' ~ pt(t_star, df = df),
+                  t_tail_type() == 'right' ~ pt(t_star, df = df,
+                                              lower.tail = FALSE),
+                  t_tail_type() == 'middle' ~ pt(t_star, df = df) -
+                      pt(-(t_star), df = df),
+                  t_tail_type() == 'two' ~ pt(t_star, df = df) + pt(-t_star, df = df),
+                  TRUE ~ 0) %>%
+            round(4)
+    }
+
+
+    t_score <- reactive({
+        if(input$tCurve_att == 't_value_select'){
+            input$t_value %>%
+                round(4)
+        }
+        else if(input$tCurve_att == 'auc_select'){
+            calc_t_score(t_auc_react(), t_df())
+        }
+    })
 
 
 
+    t_auc_react <- reactive({
+        if(input$tCurve_att == 't_value_select'){
+            calc_t_auc(t_score(), t_df())
+        }
+        else if(input$tCurve_att == 'auc_select'){
+            input$t_auc %>%
+                round(4)
+        }
+    })
 
+
+    output$tAutoCalc <- renderUI({
+
+        if(input$tCurve_att == 't_value_select'){
+            auc <- t_auc_react()
+
+            HTML(paste0(argonH1("Area Under Curve (AUC):",
+                                display = 4),
+                        h4(round(auc, 3))))
+        } else if(input$tCurve_att == 'auc_select'){
+            if(between(t_auc_react(), 0, 1)){
+
+                t_value <- t_score() %>%
+                    round(3)
+
+            }
+            if(is.finite(t_value)){
+
+                if(t_tail_type() %in% c('middle', 'two')){
+                    t_value <- paste('+/-', abs(t_value))
+                }
+
+                HTML(paste0(argonH1("t score:",
+                                    display = 4),
+                            h4(t_value)))
+            } else {
+                "Please enter a value between 0 and 1. "
+            }
+        }
+    })
+
+    output$tPlot <- renderPlot({
+
+
+        lower_lim <- case_when(t_tail_type() %in% c('left', 'two') ~ -10,
+                               t_tail_type() == 'right' ~ as.double(t_score()),
+                               t_tail_type() == 'middle' ~ -as.double(t_score()),
+                               TRUE ~ 0)
+        upper_lim <- case_when(t_tail_type() %in% c('right', 'two') ~ 10,
+                               t_tail_type() == 'left' ~ as.double(t_score()),
+                               t_tail_type() == 'middle' ~ as.double(t_score()),
+                               TRUE ~ 0)
+
+        label <- HTML(paste0('t value: ', case_when(t_tail_type() %in% c('middle', 'two') ~
+                                                        paste('+/-', abs(t_score())),
+                                                    TRUE ~ as.character(t_score())), '\n',
+                             'df: ', t_df(), '\n',
+                             'auc: ', t_auc_react()))
+
+
+        ggplot(data = df, aes(x = x)) +
+            stat_function(fun = ~ dt(.x, df = t_df()),
+                          geom = 'area',
+                          xlim = c(lower_lim, upper_lim),
+                          fill = "#FDB515") +
+            stat_function(fun = ~ dt(.x, df = t_df()),
+                          geom = 'line',
+                          size = 1.5,
+                          xlim = c(-10, 10),
+                          color = '#3B7EA1') +
+            xlim(-4, 4) +
+            annotate('text',
+                     label = label,
+                     x = Inf, y = Inf,
+                     hjust = 1,
+                     vjust = 2,
+                     color = 'red',
+                     size = 6) +
+            labs(x = 't score') +
+            theme_minimal() +
+            if(t_tail_type() == 'two'){
+                stat_function(fun = ~ dt(.x, df = t_df()),
+                              geom = 'area',
+                              fill = 'white',
+                              xlim = c(-abs(t_score()), abs(t_score())))
+            } else NULL
     })
 }
 
