@@ -469,7 +469,7 @@ server <- function(input, output, session) {
                                               lower.tail = FALSE),
                   t_tail_type() == 'middle' ~ pt(abs(t_star), df = df) -
                       pt(-abs(t_star), df = df),
-                  t_tail_type() == 'two' ~ 2 * pt(t_star, df = df),
+                  t_tail_type() == 'two' ~ 2 * pt(-abs(t_star), df = df),
                   TRUE ~ 0) %>%
             round(7)
     }
