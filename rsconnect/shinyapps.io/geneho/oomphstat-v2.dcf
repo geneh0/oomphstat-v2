@@ -5,9 +5,9 @@ account: geneho
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3874104
-bundleId: 4410092
+bundleId: 4440370
 url: https://geneho.shinyapps.io/oomphstat-v2/
-when: 1617077095.065
+when: 1617772043.4331
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: app_old.R|README.md|README.Rmd|www/favicon.ico
